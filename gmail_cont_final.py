@@ -8,17 +8,18 @@ import os
 import socket
 import sys
 import time
+import subprocess
 
 # IMAP server login credentials
 EMAIL = "venkataramarajun9@gmail.com"
 PASSWORD = "gorp kccb iwit mwwa"
 IMAP_SERVER = "imap.gmail.com"
 IMAP_PORT = 993
-# Paths for log and Excel files (using WSL path)
-#LOG_FILE = "/mnt/c/Users/venka/Downloads/python/processed_dates_updated5.log"  # Log file to store processed timestamps
-#EXCEL_FILE = "/mnt/c/Users/venka/Downloads/python/email_data5.xlsx"  # File to store email data in Excel
-LOG_FILE = "/usr/tmp/processed_dates_1.log"  # Log file to store processed timestamps
-EXCEL_FILE = "email_data1.xlsx"  # File to store email data in Excel
+
+# Repository directory and log/excel paths
+REPO_DIR = "/usr/tmp/Python_emailScript"
+LOG_FILE = os.path.join(REPO_DIR, "processed_dates_1.log")  # Log file to store processed timestamps
+EXCEL_FILE = os.path.join(REPO_DIR, "email_data1.xlsx")     # File to store email data in Excel
 
 # Timeout settings (in seconds)
 socket.setdefaulttimeout(60)
@@ -53,6 +54,17 @@ def save_processed_timestamp(timestamp_str):
         print(f"Timestamp {timestamp_str} saved to log file.")
     except Exception as e:
         handle_error(f"Failed to save processed timestamp: {e}")
+
+# Push changes to the GitHub repository
+def push_to_github():
+    try:
+        os.chdir(REPO_DIR)
+        subprocess.run(['git', 'add', '.'], check=True)
+        subprocess.run(['git', 'commit', '-m', 'Update email data and log files'], check=True)
+        subprocess.run(['git', 'push'], check=True)
+        print("Changes pushed to GitHub successfully.")
+    except subprocess.CalledProcessError as e:
+        handle_error(f"Failed to push changes to GitHub: {e}")
 
 # Connect to IMAP server and fetch emails based on start and end date/time
 def extract_emails_by_datetime_range(start_datetime, end_datetime, processed_timestamps):
@@ -226,11 +238,15 @@ def main(start_datetime_str, end_datetime_str):
         else:
             print("No emails found in the specified range.")
 
+        # Push the updated Excel and log files to GitHub
+        push_to_github()
+
     except Exception as e:
         handle_error(f"Unexpected error: {e}")
 
 if __name__ == '__main__':
     # Define start and end datetime strings
-    start_datetime_str = "2024-10-11 01:01:00"  # Start date and time
+    start_datetime_str = "2024-10-01 01:01:00"  # Start date and time
     end_datetime_str = "2024-10-12 01:01:00"    # End date and time
     main(start_datetime_str, end_datetime_str)
+
