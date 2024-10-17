@@ -1,8 +1,8 @@
-import imaplib
+mport imaplib
 import email
 from email.header import decode_header
 from openpyxl import Workbook
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 import os
 import socket
@@ -11,15 +11,15 @@ import time
 
 # IMAP server login credentials
 EMAIL = "venkataramarajun9@gmail.com"
-PASSWORD = "gorp kccb iwit mwwa"
+PASSWORD = "gorp kccb iwit mwwa"  # Consider using environment variables for security
 IMAP_SERVER = "imap.gmail.com"
 IMAP_PORT = 993
 
-# Updated paths for log and Excel files (stored locally on the Jenkins server)
-LOG_FILE = "/usr/tmp/processed_dates_updated5.log"  # Log file to store processed timestamps
-EXCEL_FILE = "/usr/tmp/email_data5.xlsx"  # File to store email data in Excel
+# Updated paths for log and Excel files
+LOG_FILE = "/usr/tmp/processed_dates_updated6.log"
+EXCEL_FILE = "/usr/tmp/email_data6.xlsx"
 
-# Timeout settings (in seconds)
+# Timeout settings
 socket.setdefaulttimeout(60)
 
 # Batch size for fetching emails
@@ -31,7 +31,7 @@ SKIP_DOMAINS = ["google.com", "dice.com"]
 
 # Handle errors by printing the message and exiting
 def handle_error(message):
-    print(f"Error occurred: {message}")
+    print(f"Error occurred: {message}", file=sys.stderr)
     sys.exit(1)
 
 # Load already processed timestamps from the log file
@@ -83,23 +83,21 @@ def extract_emails_by_datetime_range(start_datetime, end_datetime, processed_tim
         while attempt < max_attempts:
             try:
                 result, msg_data = imap.fetch(batch_str, "(RFC822)")
+                for response_part in msg_data:
+                    if isinstance(response_part, tuple):
+                        msg = email.message_from_bytes(response_part[1])
+                        email_data = extract_email_data(msg, processed_timestamps)
+                        if email_data:
+                            emails.append(email_data)
+                print(f"Processed {min(i + BATCH_SIZE, total_emails)} of {total_emails} emails...")
                 break
             except imaplib.IMAP4.abort as e:
                 attempt += 1
                 if attempt < max_attempts:
-                    print(f"Retrying to fetch emails (Attempt {attempt}/{max_attempts}) due to error: {e}")
+                    print(f"Retrying to fetch emails (Attempt {attempt}/{max_attempts}) due to error: {e}", file=sys.stderr)
                     time.sleep(5)
                 else:
                     handle_error(f"Failed to fetch emails after {max_attempts} attempts: {e}")
-
-        for response_part in msg_data:
-            if isinstance(response_part, tuple):
-                msg = email.message_from_bytes(response_part[1])
-                email_data = extract_email_data(msg, processed_timestamps)
-                if email_data:
-                    emails.append(email_data)
-
-        print(f"Processed {min(i + BATCH_SIZE, total_emails)} of {total_emails} emails...")
 
     imap.logout()
     return emails
@@ -183,7 +181,7 @@ def write_emails_to_excel(emails):
         sheet = workbook.active
         sheet.title = "Emails"
 
-        # Add headers without timestamp
+        # Add headers
         sheet.append(["Received Date/Time", "Name", "Company", "Email", "Subject", "Body"])
 
         for email in emails:
@@ -199,7 +197,6 @@ def main(start_datetime_str, end_datetime_str):
     try:
         processed_timestamps = load_processed_timestamps()
 
-        # Parse the start and end date/time strings
         start_datetime = datetime.strptime(start_datetime_str, "%Y-%m-%d %H:%M:%S")
         end_datetime = datetime.strptime(end_datetime_str, "%Y-%m-%d %H:%M:%S")
 
@@ -219,7 +216,6 @@ def main(start_datetime_str, end_datetime_str):
         # Sort emails by received date
         all_emails.sort(key=lambda x: x['received_date'])
 
-        # Write all collected emails to Excel
         if all_emails:
             write_emails_to_excel(all_emails)
         else:
@@ -229,8 +225,7 @@ def main(start_datetime_str, end_datetime_str):
         handle_error(f"Unexpected error: {e}")
 
 if __name__ == '__main__':
-    # Define start and end datetime strings
-    start_datetime_str = "2024-10-04 01:01:00"  # Start date and time
-    end_datetime_str = "2024-10-12 01:01:00"    # End date and time
+    start_datetime_str = "2024-10-04 01:01:00"
+    end_datetime_str = "2024-10-12 01:01:00"
     main(start_datetime_str, end_datetime_str)
 
